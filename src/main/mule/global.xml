@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs"
+	xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<configuration-properties doc:name="Configuration properties" doc:id="043c0ac4-3e77-475c-9be9-6265a6ef1c81" file="config.yaml" />
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="76ed6b89-d44e-4f5a-9215-6683daaaddf7" file="config.yaml" key="Password12345678" />
+<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="4e14c59a-d733-4f3e-8053-72dcede9216d" >
+		<http:listener-connection host="${http.host}" port="${http.port}" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="e5a6c89e-a25b-4f6f-8b4d-fef12eb58623" >
+		<http:request-connection protocol="HTTPS" host="${secure::NEWRELIC.host}" />
+	</http:request-config>
+	<validation:config name="Validation_Config" doc:name="Validation Config" doc:id="05fae317-65f5-4b34-8e86-71e652efa09f"/>
+		<sqs:config name="Amazon_SQS_Configuration" doc:name="Amazon SQS Configuration" doc:id="84309ffb-b89d-4464-9383-d3b714572733" >
+		<sqs:basic-connection accessKey="${secure::AWS.access-key}" secretKey="${secure::AWS.secret-key}" />
+	</sqs:config>
+	<configuration doc:name="Configuration" doc:id="311fd02a-7dbc-4e35-82fc-88119fd82f5b" defaultErrorHandler-ref="global_Error_Handler" />
+	<error-handler name="global_Error_Handler">
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="932e3602-231a-4f5c-8d7e-20a91fddd127" type="ANY" >
+			<ee:transform doc:name="Transform Message" doc:id="a5232c3a-de70-4cf9-aa08-7de07eba522a" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "severity": "HIGH",
+    "eventType": "InsightsLogs",
+    "env": "DEV",
+    "messageId": uuid() as String,
+    "muleAppName": "new-relic-insights",
+    "intgCreationDate": now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.ss'Z'"},
+    "payload": write(payload,'application/json'),
+    "resultMessage": "Unable to Post the message",
+    "result": "Error",
+    "endpoint": "/api/second"
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<http:request method="POST" doc:name="Request" doc:id="9b5fed14-7b4e-4e37-abf7-2393ee380d2f" config-ref="HTTP_Request_configuration" path="/v1/accounts/3424915/events" >
+				<http:headers ><![CDATA[#[output application/java
+---
+{
+	"X-insert-Key" : "NRII-9hAL1UkgtjUL_IXNCcEV0oUdHPWt2w2L"
+}]]]></http:headers>
+			</http:request>
+			
+</on-error-propagate>
+		</error-handler>
+</mule>
